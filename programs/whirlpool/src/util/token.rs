@@ -2,7 +2,7 @@ use crate::state::Whirlpool;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use mpl_token_metadata::instruction::create_metadata_accounts_v2;
-use solana_program::program::invoke_signed;
+use solana_program::program::{invoke, invoke_signed};
 use spl_token::instruction::{burn_checked, close_account, mint_to, set_authority, AuthorityType};
 
 pub fn transfer_from_owner_to_vault<'info>(
@@ -33,14 +33,14 @@ pub fn transfer_from_vault_to_owner<'info>(
     amount: u64,
 ) -> Result<(), ProgramError> {
     token::transfer(
-        CpiContext::new_with_signer(
+        CpiContext::new(
             token_program.to_account_info().clone(),
             Transfer {
                 from: token_vault.to_account_info().clone(),
                 to: token_owner_account.to_account_info().clone(),
                 authority: whirlpool.to_account_info().clone(),
             },
-            &[&whirlpool.seeds()],
+            // &[&whirlpool.seeds()],
         ),
         amount,
     )
@@ -131,7 +131,7 @@ pub fn mint_position_token_with_metadata_and_remove_authority<'info>(
     )?;
 
     let metadata_mint_auth_account = whirlpool;
-    invoke_signed(
+    invoke(
         &create_metadata_accounts_v2(
             metadata_program.key(),
             position_metadata_account.key(),
@@ -159,7 +159,7 @@ pub fn mint_position_token_with_metadata_and_remove_authority<'info>(
             system_program.to_account_info(),
             rent.to_account_info(),
         ],
-        &[&metadata_mint_auth_account.seeds()],
+        // &[&metadata_mint_auth_account.seeds()],
     )?;
 
     remove_position_token_mint_authority(whirlpool, position_mint, token_program)
@@ -171,7 +171,7 @@ fn mint_position_token<'info>(
     position_token_account: &Account<'info, TokenAccount>,
     token_program: &Program<'info, Token>,
 ) -> ProgramResult {
-    invoke_signed(
+    invoke(
         &mint_to(
             token_program.key,
             position_mint.to_account_info().key,
@@ -186,7 +186,7 @@ fn mint_position_token<'info>(
             whirlpool.to_account_info().clone(),
             token_program.to_account_info().clone(),
         ],
-        &[&whirlpool.seeds()],
+        // &[&whirlpool.seeds()],
     )
 }
 
@@ -195,7 +195,7 @@ fn remove_position_token_mint_authority<'info>(
     position_mint: &Account<'info, Mint>,
     token_program: &Program<'info, Token>,
 ) -> ProgramResult {
-    invoke_signed(
+    invoke(
         &set_authority(
             token_program.key,
             position_mint.to_account_info().key,
@@ -209,6 +209,6 @@ fn remove_position_token_mint_authority<'info>(
             whirlpool.to_account_info().clone(),
             token_program.to_account_info().clone(),
         ],
-        &[&whirlpool.seeds()],
+        // &[&whirlpool.seeds()],
     )
 }

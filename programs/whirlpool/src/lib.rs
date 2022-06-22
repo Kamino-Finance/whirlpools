@@ -194,13 +194,13 @@ pub mod whirlpool {
     ///                        the tick-spacing in this pool.
     pub fn open_position_with_metadata(
         ctx: Context<OpenPositionWithMetadata>,
-        bumps: OpenPositionWithMetadataBumps,
+        // bumps: OpenPositionWithMetadataBumps,
         tick_lower_index: i32,
         tick_upper_index: i32,
     ) -> ProgramResult {
         return instructions::open_position_with_metadata::handler(
             ctx,
-            bumps,
+            // bumps,
             tick_lower_index,
             tick_upper_index,
         );

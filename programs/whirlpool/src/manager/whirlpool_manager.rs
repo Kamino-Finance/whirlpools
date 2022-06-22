@@ -1,3 +1,5 @@
+use solana_program::msg;
+
 use crate::errors::ErrorCode;
 use crate::math::{add_liquidity_delta, checked_mul_div};
 use crate::state::*;
@@ -53,11 +55,24 @@ pub fn next_whirlpool_liquidity(
     tick_lower_index: i32,
     liquidity_delta: i128,
 ) -> Result<u128, ErrorCode> {
+    msg!(
+        "tick_upper_index {}, tick_lower_index {}, liquidity_delta {}",
+        tick_upper_index,
+        tick_lower_index,
+        liquidity_delta
+    );
+
+    msg!(
+        "whirlpool.tick_current_index {}",
+        whirlpool.tick_current_index,
+    );
     if whirlpool.tick_current_index < tick_upper_index
         && whirlpool.tick_current_index >= tick_lower_index
     {
+        msg!("Add");
         add_liquidity_delta(whirlpool.liquidity, liquidity_delta)
     } else {
+        msg!("Unchanged");
         Ok(whirlpool.liquidity)
     }
 }

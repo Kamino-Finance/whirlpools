@@ -11,6 +11,7 @@ use crate::{
     state::*,
 };
 use anchor_lang::prelude::{AccountLoader, ProgramError};
+use solana_program::msg;
 
 #[derive(Debug)]
 pub struct ModifyLiquidityUpdate {
@@ -106,6 +107,8 @@ fn _calculate_modify_liquidity(
         position.tick_lower_index,
         liquidity_delta,
     )?;
+
+    msg!("Next global liquidity {:?}", next_global_liquidity);
 
     let tick_lower_update = next_tick_modify_liquidity_update(
         tick_lower,
@@ -220,6 +223,11 @@ pub fn sync_modify_liquidity_values<'info>(
         whirlpool.tick_spacing,
         &modify_liquidity_update.tick_upper_update,
     )?;
+
+    msg!(
+        "Updating liquidity to {:?}",
+        modify_liquidity_update.whirlpool_liquidity
+    );
 
     whirlpool.update_rewards_and_liquidity(
         modify_liquidity_update.reward_infos,
@@ -3597,5 +3605,55 @@ mod calculate_modify_liquidity_unit_tests {
                 assert_eq!(test.whirlpool.fee_growth_global_b, 184467440737095516159);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anchor_lang::prelude::Pubkey;
+
+    use crate::{
+        manager::liquidity_manager::calculate_liquidity_token_deltas,
+        math::convert_to_liquidity_delta,
+        state::{Position, PositionRewardInfo},
+    };
+
+    #[test]
+    fn test_calc_amounts() {
+        println!("test_calc_amounts");
+        let current_tick_index = 24;
+        let sqrt_price = 18469728398138041387;
+        let position = Position {
+            whirlpool: Pubkey::default(),
+            position_mint: Pubkey::default(),
+            liquidity: 3702760990,
+            tick_lower_index: -32,
+            tick_upper_index: 95,
+            fee_growth_checkpoint_a: 0,
+            fee_owed_a: 0,
+            fee_growth_checkpoint_b: 0,
+            fee_owed_b: 0,
+            reward_infos: [PositionRewardInfo::default(); 3],
+        };
+
+        let liquidity_delta = convert_to_liquidity_delta(position.liquidity, false).unwrap();
+
+        let (delta_a, delta_b) = calculate_liquidity_token_deltas(
+            current_tick_index,
+            sqrt_price,
+            &position,
+            liquidity_delta,
+        )
+        .unwrap();
+
+        let decimals = 6;
+
+        let delta_a = delta_a as f64 / 10_i64.pow(decimals) as f64;
+        let delta_b = delta_b as f64 / 10_i64.pow(decimals) as f64;
+
+        println!("delta_a: {}", delta_a);
+        println!("delta_b: {}", delta_b);
+
+        println!("Total {:?}", delta_a + delta_b);
     }
 }

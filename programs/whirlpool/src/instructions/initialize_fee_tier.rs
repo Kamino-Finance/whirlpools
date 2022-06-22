@@ -8,10 +8,10 @@ pub struct InitializeFeeTier<'info> {
 
     #[account(init,
       payer = funder,
-      seeds = [b"fee_tier", config.key().as_ref(),
-               tick_spacing.to_le_bytes().as_ref()],
-      bump,
-      space = FeeTier::LEN)]
+    //   seeds = [b"fee_tier", config.key().as_ref(),
+    //            tick_spacing.to_le_bytes().as_ref()],
+    //   bump,
+    space = FeeTier::LEN)]
     pub fee_tier: Account<'info, FeeTier>,
 
     #[account(mut)]

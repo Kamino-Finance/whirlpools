@@ -88,8 +88,10 @@ pub fn handler(
     )?;
 
     if delta_a > token_max_a {
+        msg!("Here1 d={} t={}", delta_a, token_max_a);
         return Err(ErrorCode::TokenMaxExceeded.into());
     } else if delta_b > token_max_b {
+        msg!("Here2");
         return Err(ErrorCode::TokenMaxExceeded.into());
     }
 

@@ -180,6 +180,12 @@ impl TickArray {
         a_to_b: bool,
     ) -> Result<Option<i32>, ErrorCode> {
         if !self.in_search_range(tick_index, tick_spacing, !a_to_b) {
+            msg!(
+                "tick_index {} not in range for {:?} w size {}",
+                tick_index,
+                self.start_tick_index,
+                TICK_ARRAY_SIZE_USIZE
+            );
             return Err(ErrorCode::InvalidTickArraySequence);
         }
 

@@ -18,7 +18,7 @@ pub struct Swap<'info> {
 
     pub token_authority: Signer<'info>,
 
-    #[account(mut)]
+    #[account(mut, signer)]
     pub whirlpool: Box<Account<'info, Whirlpool>>,
 
     #[account(mut, constraint = token_owner_account_a.mint == whirlpool.token_mint_a)]
@@ -98,6 +98,7 @@ pub fn handler(
         timestamp,
     );
 
+    msg!("Before perform");
     perform_swap(
         &ctx.accounts.whirlpool,
         &ctx.accounts.token_authority,
@@ -159,6 +160,8 @@ fn perform_swap<'info>(
         token_program,
         deposit_amount,
     )?;
+
+    msg!("Transferred {}", deposit_amount);
 
     transfer_from_vault_to_owner(
         whirlpool,

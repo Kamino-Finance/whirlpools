@@ -14,14 +14,14 @@ pub struct InitializePool<'info> {
     pub funder: Signer<'info>,
 
     #[account(init,
-      seeds = [
-        b"whirlpool".as_ref(),
-        whirlpools_config.key().as_ref(),
-        token_mint_a.key().as_ref(),
-        token_mint_b.key().as_ref(),
-        tick_spacing.to_le_bytes().as_ref()
-      ],
-      bump = bumps.whirlpool_bump,
+      // seeds = [
+      //   b"whirlpool".as_ref(),
+      //   whirlpools_config.key().as_ref(),
+      //   token_mint_a.key().as_ref(),
+      //   token_mint_b.key().as_ref(),
+      //   tick_spacing.to_le_bytes().as_ref()
+      // ],
+      // bump = bumps.whirlpool_bump,
       payer = funder,
       space = Whirlpool::LEN)]
     pub whirlpool: Box<Account<'info, Whirlpool>>,
