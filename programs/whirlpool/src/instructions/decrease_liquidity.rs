@@ -18,6 +18,10 @@ pub fn handler(
     token_min_a: u64,
     token_min_b: u64,
 ) -> ProgramResult {
+    msg!("inside decrease_liquidity");
+    msg!("liquidity_amount: {}", liquidity_amount);
+    msg!("token_min_a: {}", token_min_a);
+    msg!("token_min_b: {}", token_min_b);
     verify_position_authority(
         &ctx.accounts.position_token_account,
         &ctx.accounts.position_authority,
@@ -56,6 +60,10 @@ pub fn handler(
         liquidity_delta,
     )?;
 
+    msg!("delta_a: {}", delta_a);
+    msg!("delta_b: {}", delta_b);
+    msg!("token_min_a: {}", token_min_a);
+    msg!("token_min_b: {}", token_min_b);
     if delta_a < token_min_a {
         return Err(ErrorCode::TokenMinSubceeded.into());
     } else if delta_b < token_min_b {

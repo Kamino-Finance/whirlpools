@@ -1,9 +1,10 @@
+use core::fmt;
+
 use crate::errors::ErrorCode;
 use crate::state::NUM_REWARDS;
 use anchor_lang::prelude::*;
 
 use super::Whirlpool;
-
 // Max & min tick index based on sqrt(1.0001) & max.min price of 2^64
 pub const MAX_TICK_INDEX: i32 = 443636;
 pub const MIN_TICK_INDEX: i32 = -443636;
@@ -138,6 +139,14 @@ impl TickUpdate {
     }
 }
 
+impl fmt::Debug for TickArray {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TickArray")
+            .field("start_tick_index", &self.start_tick_index)
+            .finish()
+    }
+}
+
 #[account(zero_copy)]
 #[repr(packed)]
 pub struct TickArray {
@@ -244,13 +253,18 @@ impl TickArray {
     /// - `&Tick`: A reference to the desired Tick object
     /// - `TickNotFound`: - The provided tick-index is not an initializable tick index in this Whirlpool w/ this tick-spacing.
     pub fn get_tick(&self, tick_index: i32, tick_spacing: u16) -> Result<&Tick, ErrorCode> {
-        if !self.check_in_array_bounds(tick_index, tick_spacing)
-            || !Tick::check_is_usable_tick(tick_index, tick_spacing)
-        {
+        if !self.check_in_array_bounds(tick_index, tick_spacing) {
+            msg!("check_in_array_bounds fails");
+            return Err(ErrorCode::TickNotFound);
+        }
+
+        if !Tick::check_is_usable_tick(tick_index, tick_spacing) {
+            msg!("check_is_usable_tick fails");
             return Err(ErrorCode::TickNotFound);
         }
         let offset = self.tick_offset(tick_index, tick_spacing)?;
         if offset < 0 {
+            msg!("offset fails");
             return Err(ErrorCode::TickNotFound);
         }
         Ok(&self.ticks[offset as usize])
@@ -271,13 +285,18 @@ impl TickArray {
         tick_spacing: u16,
         update: &TickUpdate,
     ) -> Result<(), ErrorCode> {
-        if !self.check_in_array_bounds(tick_index, tick_spacing)
-            || !Tick::check_is_usable_tick(tick_index, tick_spacing)
-        {
+        if !self.check_in_array_bounds(tick_index, tick_spacing) {
+            msg!("update_tick check_in_array_bounds fails");
+            return Err(ErrorCode::TickNotFound);
+        }
+
+        if !Tick::check_is_usable_tick(tick_index, tick_spacing) {
+            msg!("update_tick check_is_usable_tick fails");
             return Err(ErrorCode::TickNotFound);
         }
         let offset = self.tick_offset(tick_index, tick_spacing)?;
         if offset < 0 {
+            msg!("update_tick offset fails");
             return Err(ErrorCode::TickNotFound);
         }
         self.ticks.get_mut(offset as usize).unwrap().update(update);
@@ -299,14 +318,27 @@ impl TickArray {
     pub fn in_search_range(&self, tick_index: i32, tick_spacing: u16, shifted: bool) -> bool {
         let mut lower = self.start_tick_index;
         let mut upper = self.start_tick_index + TICK_ARRAY_SIZE * tick_spacing as i32;
+
+        msg!("CRETAKER: lower is {}", lower);
+        msg!("CRETAKER: upper is {}", upper);
+
         if shifted {
             lower = lower - tick_spacing as i32;
             upper = upper - tick_spacing as i32;
         }
+        msg!("in_search_range lower {:?}", lower);
+        msg!("in_search_range upper {:?}", upper);
+        msg!("tick_index {:?}", tick_index);
+
         tick_index >= lower && tick_index < upper
     }
 
     pub fn check_in_array_bounds(&self, tick_index: i32, tick_spacing: u16) -> bool {
+        msg!("check_in_array_bounds fails for tick_index {}", tick_index);
+        msg!(
+            "check_in_array_bounds fails for tick_spacing {}",
+            tick_spacing
+        );
         self.in_search_range(tick_index, tick_spacing, false)
     }
 

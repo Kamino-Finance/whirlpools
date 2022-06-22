@@ -62,10 +62,18 @@ impl Position {
         tick_lower_index: i32,
         tick_upper_index: i32,
     ) -> Result<(), ErrorCode> {
-        if !Tick::check_is_usable_tick(tick_lower_index, whirlpool.tick_spacing)
-            || !Tick::check_is_usable_tick(tick_upper_index, whirlpool.tick_spacing)
-            || tick_lower_index >= tick_upper_index
-        {
+        msg!("whirlpool tick_lower_index: {}", tick_lower_index);
+        msg!("whirlpool tick_upper_index: {}", tick_upper_index);
+        if !Tick::check_is_usable_tick(tick_lower_index, whirlpool.tick_spacing) {
+            msg!("Invalid tick_lower_index: {}", tick_lower_index);
+            return Err(ErrorCode::InvalidTickIndex.into());
+        }
+        if !Tick::check_is_usable_tick(tick_upper_index, whirlpool.tick_spacing) {
+            msg!("Invalid tick_upper_index: {}", tick_upper_index);
+            return Err(ErrorCode::InvalidTickIndex.into());
+        }
+        if tick_lower_index >= tick_upper_index {
+            msg!("Invalid tick_lower_index: {}", tick_lower_index);
             return Err(ErrorCode::InvalidTickIndex.into());
         }
 

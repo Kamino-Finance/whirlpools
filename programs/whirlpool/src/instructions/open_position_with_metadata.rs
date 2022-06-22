@@ -34,8 +34,8 @@ pub struct OpenPositionWithMetadata<'info> {
     )]
     pub position_mint: Account<'info, Mint>,
 
-    /// CHECK: checked via the Metadata CPI call
-    /// https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/program/src/utils.rs#L873
+    // /// CHECK: checked via the Metadata CPI call
+    // /// https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/program/src/utils.rs#L873
     #[account(mut)]
     pub position_metadata_account: UncheckedAccount<'info>,
 
@@ -76,6 +76,7 @@ pub fn handler(
     let position_mint = &ctx.accounts.position_mint;
     let position = &mut ctx.accounts.position;
 
+    msg!("the tick_upper_index is {}", tick_upper_index);
     position.open_position(
         whirlpool,
         position_mint.key(),
@@ -95,4 +96,5 @@ pub fn handler(
         &ctx.accounts.system_program,
         &ctx.accounts.rent,
     )
+
 }

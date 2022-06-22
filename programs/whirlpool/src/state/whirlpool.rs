@@ -88,6 +88,10 @@ impl Whirlpool {
         if sqrt_price < MIN_SQRT_PRICE_X64 || sqrt_price > MAX_SQRT_PRICE_X64 {
             return Err(ErrorCode::SqrtPriceOutOfBounds.into());
         }
+        msg!(
+            "Initializing Whirlpool with tick_current_index: {}",
+            tick_index_from_sqrt_price(&sqrt_price)
+        );
 
         self.whirlpools_config = whirlpools_config.key();
         self.whirlpool_bump = [bump];
@@ -100,6 +104,10 @@ impl Whirlpool {
 
         self.liquidity = 0;
         self.sqrt_price = sqrt_price;
+        msg!(
+            "Initializing Whirlpool with tick_current_index: {}",
+            tick_index_from_sqrt_price(&sqrt_price)
+        );
         self.tick_current_index = tick_index_from_sqrt_price(&sqrt_price);
 
         self.protocol_fee_owed_a = 0;

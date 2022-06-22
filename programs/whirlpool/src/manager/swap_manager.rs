@@ -1,3 +1,5 @@
+use solana_program::msg;
+
 use crate::{
     errors::ErrorCode,
     manager::{
@@ -34,9 +36,15 @@ pub fn swap(
         return Err(ErrorCode::SqrtPriceOutOfBounds.into());
     }
 
-    if a_to_b && sqrt_price_limit > whirlpool.sqrt_price
-        || !a_to_b && sqrt_price_limit < whirlpool.sqrt_price
-    {
+    msg!("sqrt_price_limit {}", sqrt_price_limit);
+    msg!("whirlpool.sqrt_price {}", whirlpool.sqrt_price);
+    if a_to_b && sqrt_price_limit > whirlpool.sqrt_price {
+        msg!("a_to_b swap error: sqrt_price_limit > whirlpool.sqrt_price");
+        return Err(ErrorCode::InvalidSqrtPriceLimitDirection.into());
+    }
+
+    if !a_to_b && sqrt_price_limit < whirlpool.sqrt_price {
+        msg!("NOT a_to_b swap error: sqrt_price_limit > whirlpool.sqrt_price");
         return Err(ErrorCode::InvalidSqrtPriceLimitDirection.into());
     }
 
@@ -62,6 +70,7 @@ pub fn swap(
         whirlpool.fee_growth_global_b
     };
 
+    msg!("before check amount_remaining > 0 && sqrt_price_limit != curr_sqrt_price");
     while amount_remaining > 0 && sqrt_price_limit != curr_sqrt_price {
         let (next_array_index, next_tick_index) = swap_tick_sequence
             .get_next_initialized_tick_index(
@@ -88,8 +97,8 @@ pub fn swap(
             amount_remaining = amount_remaining
                 .checked_sub(swap_computation.amount_in)
                 .ok_or(ErrorCode::AmountRemainingOverflow)?;
-            amount_remaining = amount_remaining.
-                checked_sub(swap_computation.fee_amount)
+            amount_remaining = amount_remaining
+                .checked_sub(swap_computation.fee_amount)
                 .ok_or(ErrorCode::AmountRemainingOverflow)?;
 
             amount_calculated = amount_calculated
@@ -2499,7 +2508,6 @@ mod swap_error_tests {
         swap_test_info.run(&mut tick_sequence, 100);
     }
 
-
     #[test]
     #[should_panic(expected = "AmountCalcOverflow")]
     // Swapping at high liquidity/price can lead to an amount calculated
@@ -2511,7 +2519,8 @@ mod swap_error_tests {
         // Use filled arrays to minimize the the overflow from calculations, rather than accumulation
         let array_1_ticks: Vec<TestTickInfo> = build_filled_tick_array(439296, TS_128);
         let array_2_ticks: Vec<TestTickInfo> = build_filled_tick_array(439296 - 88 * 128, TS_128);
-        let array_3_ticks: Vec<TestTickInfo> = build_filled_tick_array(439296 - 2 * 88 * 128, TS_128);
+        let array_3_ticks: Vec<TestTickInfo> =
+            build_filled_tick_array(439296 - 2 * 88 * 128, TS_128);
         let swap_test_info = SwapTestFixture::new(SwapTestFixtureInfo {
             tick_spacing: TS_128,
             liquidity: (u32::MAX as u128) << 2,
@@ -2533,5 +2542,4 @@ mod swap_error_tests {
         );
         swap_test_info.run(&mut tick_sequence, 100);
     }
-
 }

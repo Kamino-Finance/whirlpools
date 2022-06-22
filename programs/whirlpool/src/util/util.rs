@@ -3,7 +3,7 @@ use anchor_lang::{
     ToAccountInfo,
 };
 use anchor_spl::token::TokenAccount;
-use solana_program::program_option::COption;
+use solana_program::{msg, program_option::COption};
 use std::convert::TryFrom;
 
 use crate::errors::ErrorCode;
@@ -32,7 +32,13 @@ fn validate_owner(
     expected_owner: &Pubkey,
     owner_account_info: &AccountInfo,
 ) -> Result<(), ProgramError> {
-    if expected_owner != owner_account_info.key || !owner_account_info.is_signer {
+    if expected_owner != owner_account_info.key {
+        msg!("expected owner: {}", expected_owner);
+        msg!("owner account info: {}", owner_account_info.key);
+        msg!("cretaker: fail expected_owner != owner_account_info.key");
+    }
+    if !owner_account_info.is_signer {
+        msg!("cretaker: fail !owner_account_info.is_signer");
         return Err(ErrorCode::MissingOrInvalidDelegate.into());
     }
 

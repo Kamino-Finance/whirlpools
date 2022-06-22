@@ -49,6 +49,11 @@ pub fn handler(
     token_max_a: u64,
     token_max_b: u64,
 ) -> ProgramResult {
+    msg!("inside increase_liquidity ");
+    msg!("liquidity_amount: {}", liquidity_amount);
+    msg!("token_max_a: {}", token_max_a);
+    msg!("token_max_b: {}", token_max_b);
+
     verify_position_authority(
         &ctx.accounts.position_token_account,
         &ctx.accounts.position_authority,
@@ -60,6 +65,7 @@ pub fn handler(
         return Err(ErrorCode::LiquidityZero.into());
     }
     let liquidity_delta = convert_to_liquidity_delta(liquidity_amount, true)?;
+    msg!("liquidity_delta: {}", liquidity_delta);
     let timestamp = to_timestamp_u64(clock.unix_timestamp)?;
 
     let update = calculate_modify_liquidity(
@@ -86,6 +92,8 @@ pub fn handler(
         &ctx.accounts.position,
         liquidity_delta,
     )?;
+    msg!("delta_a: {}", delta_a);
+    msg!("delta_b: {}", delta_b);
 
     if delta_a > token_max_a {
         return Err(ErrorCode::TokenMaxExceeded.into());
@@ -93,6 +101,7 @@ pub fn handler(
         return Err(ErrorCode::TokenMaxExceeded.into());
     }
 
+    msg!("increase_liq before transfer from owner to vault token-a");
     transfer_from_owner_to_vault(
         &ctx.accounts.position_authority,
         &ctx.accounts.token_owner_account_a,
@@ -101,6 +110,7 @@ pub fn handler(
         delta_a,
     )?;
 
+    msg!("increase_liq before transfer from owner to vault token-b");
     transfer_from_owner_to_vault(
         &ctx.accounts.position_authority,
         &ctx.accounts.token_owner_account_b,

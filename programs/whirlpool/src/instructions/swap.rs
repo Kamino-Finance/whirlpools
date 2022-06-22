@@ -53,6 +53,17 @@ pub fn handler(
     amount_specified_is_input: bool,
     a_to_b: bool, // Zero for one
 ) -> ProgramResult {
+    msg!("inside swap_handler");
+
+    let tick_0 = ctx.accounts.tick_array_0.load_mut().unwrap();
+    let tick_1 = ctx.accounts.tick_array_1.load_mut().unwrap();
+    let tick_2 = ctx.accounts.tick_array_1.load_mut().unwrap();
+    msg!("tick_array_0 is {}", tick_0.start_tick_index);
+    msg!("tick_array_1 is {}", tick_1.start_tick_index);
+    msg!("tick_array_2 is {}", tick_2.start_tick_index);
+    drop(tick_0);
+    drop(tick_1);
+    drop(tick_2);
     let whirlpool = &mut ctx.accounts.whirlpool;
     let clock = Clock::get()?;
     // Update the global reward growth which increases as a function of time.
@@ -62,6 +73,8 @@ pub fn handler(
         ctx.accounts.tick_array_1.load_mut().ok(),
         ctx.accounts.tick_array_2.load_mut().ok(),
     );
+
+    msg!("Seq {:?}", swap_tick_sequence);
 
     let swap_update = swap(
         &whirlpool,
@@ -87,6 +100,7 @@ pub fn handler(
         }
     }
 
+    msg!("before  whirlpool.update_after_swap");
     whirlpool.update_after_swap(
         swap_update.next_liquidity,
         swap_update.next_tick_index,
@@ -97,8 +111,14 @@ pub fn handler(
         a_to_b,
         timestamp,
     );
+    msg!("after  whirlpool.update_after_swap");
 
-    perform_swap(
+    msg!(
+        "ctx.accounts.token_program {:?}",
+        ctx.accounts.token_program.key
+    );
+    msg!("before  perform_swap");
+    let swap_res = perform_swap(
         &ctx.accounts.whirlpool,
         &ctx.accounts.token_authority,
         &ctx.accounts.token_owner_account_a,
@@ -109,7 +129,9 @@ pub fn handler(
         swap_update.amount_a,
         swap_update.amount_b,
         a_to_b,
-    )
+    );
+    msg!("after  perform_swap");
+    swap_res
 }
 
 fn perform_swap<'info>(
@@ -124,6 +146,7 @@ fn perform_swap<'info>(
     amount_b: u64,
     a_to_b: bool,
 ) -> ProgramResult {
+    msg!("perform swap token_program {:?}", token_program.key);
     // Transfer from user to pool
     let deposit_account_user;
     let deposit_account_pool;
@@ -152,6 +175,7 @@ fn perform_swap<'info>(
         withdrawal_amount = amount_a;
     }
 
+    msg!("before transfer_from_owner_to_vault");
     transfer_from_owner_to_vault(
         token_authority,
         deposit_account_user,
@@ -159,7 +183,9 @@ fn perform_swap<'info>(
         token_program,
         deposit_amount,
     )?;
+    msg!("after transfer_from_owner_to_vault");
 
+    msg!("before transfer_from_vault_to_owner");
     transfer_from_vault_to_owner(
         whirlpool,
         withdrawal_account_pool,
@@ -167,6 +193,7 @@ fn perform_swap<'info>(
         token_program,
         withdrawal_amount,
     )?;
+    msg!("after transfer_from_vault_to_owner");
 
     Ok(())
 }

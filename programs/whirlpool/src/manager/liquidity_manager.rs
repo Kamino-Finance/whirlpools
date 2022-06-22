@@ -11,6 +11,7 @@ use crate::{
     state::*,
 };
 use anchor_lang::prelude::{AccountLoader, ProgramError};
+use solana_program::msg;
 
 #[derive(Debug)]
 pub struct ModifyLiquidityUpdate {
@@ -32,14 +33,19 @@ pub fn calculate_modify_liquidity<'info>(
     liquidity_delta: i128,
     timestamp: u64,
 ) -> Result<ModifyLiquidityUpdate, ProgramError> {
+    msg!("position.tick_lower_index {:?}", position.tick_lower_index);
+    msg!("position.tick_upper_index {:?}", position.tick_upper_index);
+    msg!("whirlpool.tick_spacing {:?}", whirlpool.tick_spacing);
     let tick_array_lower = tick_array_lower.load()?;
     let tick_lower =
         tick_array_lower.get_tick(position.tick_lower_index, whirlpool.tick_spacing)?;
 
+    msg!("after tick_lower");
     let tick_array_upper = tick_array_upper.load()?;
     let tick_upper =
         tick_array_upper.get_tick(position.tick_upper_index, whirlpool.tick_spacing)?;
 
+    msg!("after tick_upper");
     Ok(_calculate_modify_liquidity(
         whirlpool,
         position,
@@ -95,6 +101,7 @@ fn _calculate_modify_liquidity(
 ) -> Result<ModifyLiquidityUpdate, ErrorCode> {
     // Disallow only updating position fee and reward growth when position has zero liquidity
     if liquidity_delta == 0 && position.liquidity == 0 {
+        msg!("error _calculate_modify_liquidity liquidity_delta == 0 && position.liquidity == 0");
         return Err(ErrorCode::LiquidityZero.into());
     }
 
@@ -183,19 +190,26 @@ pub fn calculate_liquidity_token_deltas(
 
     let lower_price = sqrt_price_from_tick_index(position.tick_lower_index);
     let upper_price = sqrt_price_from_tick_index(position.tick_upper_index);
+    msg!("lower_price: {}", lower_price);
+    msg!("upper_price: {}", upper_price);
 
     if current_tick_index < position.tick_lower_index {
         // current tick below position
+        msg!("current_tick_index < position.tick_lower_index");
         delta_a = get_amount_delta_a(lower_price, upper_price, liquidity, round_up)?;
     } else if current_tick_index < position.tick_upper_index {
         // current tick inside position
+        msg!("current_tick_index < position.tick_upper_index");
         delta_a = get_amount_delta_a(sqrt_price, upper_price, liquidity, round_up)?;
         delta_b = get_amount_delta_b(lower_price, sqrt_price, liquidity, round_up)?;
     } else {
+        msg!("current tick above position");
         // current tick above position
         delta_b = get_amount_delta_b(lower_price, upper_price, liquidity, round_up)?;
     }
 
+    msg!("delta_a: {}", delta_a);
+    msg!("delta_b: {}", delta_b);
     Ok((delta_a, delta_b))
 }
 

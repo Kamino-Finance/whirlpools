@@ -12,17 +12,26 @@ pub fn transfer_from_owner_to_vault<'info>(
     token_program: &Program<'info, Token>,
     amount: u64,
 ) -> Result<(), ProgramError> {
-    token::transfer(
-        CpiContext::new(
-            token_program.to_account_info(),
-            Transfer {
-                from: token_owner_account.to_account_info(),
-                to: token_vault.to_account_info(),
-                authority: position_authority.to_account_info(),
-            },
-        ),
-        amount,
-    )
+    msg!("before ctx creation");
+    msg!("token program key {:?}", token_program.key);
+    let program = token_program.to_account_info();
+    msg!("after program");
+    let from = token_owner_account.to_account_info();
+    msg!("after from");
+    let to = token_vault.to_account_info();
+    msg!("after to");
+    let authority = position_authority.to_account_info();
+    msg!("after authority");
+    let ctx = CpiContext::new(
+        program,
+        Transfer {
+            from,
+            to,
+            authority,
+        },
+    );
+    msg!("before transfer");
+    token::transfer(ctx, amount)
 }
 
 pub fn transfer_from_vault_to_owner<'info>(

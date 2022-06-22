@@ -1,7 +1,10 @@
+use solana_program::msg;
+
 use crate::errors::ErrorCode;
 use crate::state::*;
 use std::cell::RefMut;
 
+#[derive(Debug)]
 pub struct SwapTickSequence<'info> {
     arrays: Vec<RefMut<'info, TickArray>>,
 }
@@ -109,16 +112,24 @@ impl<'info> SwapTickSequence<'info> {
         a_to_b: bool,
         start_array_index: usize,
     ) -> Result<(usize, i32), ErrorCode> {
+        msg!(
+            "in get_next_initialized_tick_index tick_index {}",
+            tick_index
+        );
         let ticks_in_array = TICK_ARRAY_SIZE * tick_spacing as i32;
         let mut search_index = tick_index;
         let mut array_index = start_array_index;
+        msg!("start_array_index : {}", array_index);
 
         // Keep looping the arrays until an initialized tick index in the subsequent tick-arrays found.
         loop {
             // If we get to the end of the array sequence and next_index is still not found, throw error
             let next_array = match self.arrays.get(array_index) {
                 Some(array) => array,
-                None => return Err(ErrorCode::TickArraySequenceInvalidIndex),
+                None => {
+                    msg!("fails in return Err(ErrorCode::TickArraySequenceInvalidIndex)");
+                    return Err(ErrorCode::TickArraySequenceInvalidIndex);
+                }
             };
 
             let next_index =

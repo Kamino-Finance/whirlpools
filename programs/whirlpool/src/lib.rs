@@ -226,6 +226,7 @@ pub mod whirlpool {
         token_max_a: u64,
         token_max_b: u64,
     ) -> ProgramResult {
+        msg!("increase_liquidity is called");
         return instructions::increase_liquidity::handler(
             ctx,
             liquidity_amount,
@@ -254,6 +255,7 @@ pub mod whirlpool {
         token_min_a: u64,
         token_min_b: u64,
     ) -> ProgramResult {
+        msg!("inside halder decrease_liquidity");
         return instructions::decrease_liquidity::handler(
             ctx,
             liquidity_amount,

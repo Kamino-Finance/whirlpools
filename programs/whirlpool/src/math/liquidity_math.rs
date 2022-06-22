@@ -1,3 +1,5 @@
+use solana_program::msg;
+
 use crate::errors::ErrorCode;
 
 // Adds a signed liquidity delta to a given integer liquidity amount.
@@ -26,6 +28,7 @@ pub fn convert_to_liquidity_delta(
         // The liquidity_amount is converted to a liquidity_delta that is represented as an i128
         // By doing this conversion we lose the most significant bit in the u128
         // Here we enforce a max value of i128::MAX on the u128 to prevent loss of data.
+        msg!("liquidity_amount error: {}", liquidity_amount);
         return Err(ErrorCode::LiquidityTooHigh.into());
     }
     Ok(if positive {
