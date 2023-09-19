@@ -1099,34 +1099,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpl-token-auth-rules"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a69803fbfbc4bb0327de86f49d2639692c7c60276cb87d6cced84bb8189f2000"
-dependencies = [
- "borsh",
- "mpl-token-metadata-context-derive",
- "num-derive",
- "num-traits",
- "rmp-serde",
- "serde",
- "shank",
- "solana-program",
- "solana-zk-token-sdk",
- "thiserror",
-]
-
-[[package]]
 name = "mpl-token-metadata"
-version = "1.8.3"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6678bb3110abc45bb32e81f80ede7420ce9069d0feb872e7423779bf9a20d1f0"
+checksum = "e719d7e0b5a9d97c7fd4d6f52ebfc32f1e3942e068173e47355f8c275656488a"
 dependencies = [
  "arrayref",
  "borsh",
- "mpl-token-auth-rules",
- "mpl-token-metadata-context-derive",
- "mpl-utils",
+ "mpl-token-vault",
  "num-derive",
  "num-traits",
  "shank",
@@ -1137,25 +1117,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpl-token-metadata-context-derive"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12989bc45715b0ee91944855130131479f9c772e198a910c3eb0ea327d5bffc3"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
-name = "mpl-utils"
+name = "mpl-token-vault"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc48e64c50dba956acb46eec86d6968ef0401ef37031426da479f1f2b592066"
+checksum = "7ade4ef15bc06a6033076c4ff28cba9b42521df5ec61211d6f419415ace2746a"
 dependencies = [
- "arrayref",
  "borsh",
+ "num-derive",
+ "num-traits",
  "solana-program",
  "spl-token",
+ "thiserror",
 ]
 
 [[package]]
@@ -1253,12 +1225,6 @@ dependencies = [
  "smallvec",
  "windows-sys",
 ]
-
-[[package]]
-name = "paste"
-version = "1.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
 
 [[package]]
 name = "pbkdf2"
@@ -1538,28 +1504,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "rmp"
-version = "0.8.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44519172358fd6d58656c86ab8e7fbc9e1490c3e8f14d35ed78ca0dd07403c9f"
-dependencies = [
- "byteorder",
- "num-traits",
- "paste",
-]
-
-[[package]]
-name = "rmp-serde"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5b13be192e0220b8afb7222aa5813cb62cc269ebb5cac346ca6487681d2913e"
-dependencies = [
- "byteorder",
- "rmp",
- "serde",
 ]
 
 [[package]]
