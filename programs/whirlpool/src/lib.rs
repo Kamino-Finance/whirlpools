@@ -175,7 +175,7 @@ pub mod whirlpool {
     ) -> Result<()> {
         return instructions::open_position::handler(
             ctx,
-            bumps,
+            // bumps,
             tick_lower_index,
             tick_upper_index,
         );
@@ -200,7 +200,7 @@ pub mod whirlpool {
     ) -> Result<()> {
         return instructions::open_position_with_metadata::handler(
             ctx,
-            bumps,
+            // bumps,
             tick_lower_index,
             tick_upper_index,
         );
