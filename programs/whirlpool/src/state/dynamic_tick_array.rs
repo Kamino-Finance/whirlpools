@@ -110,6 +110,7 @@ impl Discriminator for DynamicTickArray {
 }
 
 #[derive(Debug)]
+#[cfg_attr(not(target_os = "solana"), derive(Clone, Copy))]
 pub struct DynamicTickArrayLoader([u8; DynamicTickArray::MAX_LEN]);
 
 #[cfg(test)]
