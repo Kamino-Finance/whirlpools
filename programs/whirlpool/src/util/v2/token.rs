@@ -226,9 +226,11 @@ pub fn is_supported_token_mint(
     }
 
     // reject if mint has freeze_authority
-    if token_mint.freeze_authority.is_some() && !is_token_badge_initialized {
-        return Ok(false);
-    }
+    msg!("freeze_authority: {:?}", token_mint.freeze_authority);
+    msg!("is_token_badge_initialized: {:?}", is_token_badge_initialized);
+    // if token_mint.freeze_authority.is_some() && !is_token_badge_initialized {
+    //     return Ok(false);
+    // }
 
     let token_mint_data = token_mint_info.try_borrow_data()?;
     let token_mint_unpacked =
