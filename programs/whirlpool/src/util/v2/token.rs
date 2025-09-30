@@ -290,14 +290,16 @@ pub fn is_token_badge_initialized<'info>(
     token_mint_key: Pubkey,
     token_badge: &UncheckedAccount<'info>,
 ) -> Result<bool> {
-    if *token_badge.owner != crate::id() {
-        return Ok(false);
-    }
+    
 
     let token_badge = TokenBadge::try_deserialize(
         &mut token_badge.data.borrow().as_ref()
     )?;
 
+    msg!("token_badge.whirlpools_config: {:?}", token_badge.whirlpools_config);
+    msg!("token_badge.token_mint: {:?}", token_badge.token_mint);
+    msg!("whirlpools_config_key: {:?}", whirlpools_config_key);
+    msg!("token_mint_key: {:?}", token_mint_key);
     Ok(
         token_badge.whirlpools_config == whirlpools_config_key &&
         token_badge.token_mint == token_mint_key
