@@ -86,6 +86,8 @@ pub fn handler(
       &ctx.accounts.token_badge_a
     )?;
 
+    msg!("is_token_badge_initialized_a: {:?}", is_token_badge_initialized_a);
+
     if !is_supported_token_mint(&ctx.accounts.token_mint_a, is_token_badge_initialized_a).unwrap() {
       return Err(ErrorCode::UnsupportedTokenMint.into());
     }
@@ -95,6 +97,8 @@ pub fn handler(
       token_mint_b,
       &ctx.accounts.token_badge_b
     )?;
+
+    msg!("is_token_badge_initialized_b: {:?}", is_token_badge_initialized_b);
 
     if !is_supported_token_mint(&ctx.accounts.token_mint_b, is_token_badge_initialized_b).unwrap() {
       return Err(ErrorCode::UnsupportedTokenMint.into());
