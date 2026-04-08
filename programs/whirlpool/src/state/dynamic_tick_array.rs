@@ -356,7 +356,7 @@ mod array_update_tests {
             } else {
                 uninitialized_tick()
             });
-            tick_data.copy_from_slice(&tick.try_to_vec().unwrap());
+            tick_data.copy_from_slice(&borsh::to_vec(&tick).unwrap());
             offset += tick_len;
 
             if initialized {
