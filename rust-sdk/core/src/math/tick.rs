@@ -1098,8 +1098,6 @@ mod test_get_tick_index_in_array {
     #[test]
     fn start0_lower_bound_is_err() {
         for &s in &SPACINGS {
-            let si = s as i32;
-            let ticks_in_array = (TICK_ARRAY_SIZE as i32) * si;
             let start0 = 0i32;
             assert_eq!(
                 get_tick_index_in_array(start0 - 1, start0, s),

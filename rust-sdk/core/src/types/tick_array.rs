@@ -2,6 +2,7 @@ use crate::types::TickArrayFacade;
 
 #[cfg(not(feature = "wasm"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 pub enum TickArrays {
     One(TickArrayFacade),
     Two(TickArrayFacade, TickArrayFacade),
@@ -27,6 +28,19 @@ pub enum TickArrays {
         TickArrayFacade,
         TickArrayFacade,
     ),
+}
+#[cfg(not(feature = "wasm"))]
+impl TickArrays {
+    pub fn as_refs(&self) -> [Option<&TickArrayFacade>; 6] {
+        match self {
+            Self::One(a) => [Some(a), None, None, None, None, None],
+            Self::Two(a, b) => [Some(a), Some(b), None, None, None, None],
+            Self::Three(a, b, c) => [Some(a), Some(b), Some(c), None, None, None],
+            Self::Four(a, b, c, d) => [Some(a), Some(b), Some(c), Some(d), None, None],
+            Self::Five(a, b, c, d, e) => [Some(a), Some(b), Some(c), Some(d), Some(e), None],
+            Self::Six(a, b, c, d, e, f) => [Some(a), Some(b), Some(c), Some(d), Some(e), Some(f)],
+        }
+    }
 }
 
 #[cfg(feature = "wasm")]

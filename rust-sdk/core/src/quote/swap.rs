@@ -10,6 +10,9 @@ use crate::{
     SQRT_PRICE_LIMIT_OUT_OF_BOUNDS, ZERO_TRADABLE_AMOUNT,
 };
 
+#[cfg(not(feature = "wasm"))]
+use crate::BorrowedTickArraySequence;
+
 #[cfg(feature = "wasm")]
 use orca_whirlpools_macros::wasm_expose;
 
@@ -76,6 +79,64 @@ pub fn swap_quote_by_input_token(
         transfer_fee_out.unwrap_or_default(),
     )?;
 
+    let token_min_out =
+        try_get_min_amount_with_slippage_tolerance(token_est_out, slippage_tolerance_bps)?;
+
+    Ok(ExactInSwapQuote {
+        token_in,
+        token_est_out,
+        token_min_out,
+        trade_fee: swap_result.trade_fee,
+        trade_fee_rate_min: swap_result.applied_fee_rate_min,
+        trade_fee_rate_max: swap_result.applied_fee_rate_max,
+    })
+}
+#[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "wasm"))]
+pub fn swap_quote_by_input_token_ref(
+    token_in: u64,
+    specified_token_a: bool,
+    slippage_tolerance_bps: u16,
+    whirlpool: WhirlpoolFacade,
+    oracle: Option<OracleFacade>,
+    tick_arrays: &TickArrays,
+    timestamp: u64,
+    transfer_fee_a: Option<TransferFee>,
+    transfer_fee_b: Option<TransferFee>,
+) -> Result<ExactInSwapQuote, CoreError> {
+    let (transfer_fee_in, transfer_fee_out) = if specified_token_a {
+        (transfer_fee_a, transfer_fee_b)
+    } else {
+        (transfer_fee_b, transfer_fee_a)
+    };
+    let token_in_after_fee =
+        try_apply_transfer_fee(token_in.into(), transfer_fee_in.unwrap_or_default())?;
+
+    let tick_sequence =
+        BorrowedTickArraySequence::new(tick_arrays.as_refs(), whirlpool.tick_spacing)?;
+
+    let swap_result = compute_swap_with_sequence(
+        token_in_after_fee.into(),
+        0,
+        whirlpool,
+        tick_sequence,
+        specified_token_a,
+        true,
+        timestamp,
+        oracle.map(|oracle| oracle.into()),
+    )?;
+
+    let (token_in_after_fees, token_est_out_before_fee) = if specified_token_a {
+        (swap_result.token_a, swap_result.token_b)
+    } else {
+        (swap_result.token_b, swap_result.token_a)
+    };
+    let token_in =
+        try_reverse_apply_transfer_fee(token_in_after_fees, transfer_fee_in.unwrap_or_default())?;
+    let token_est_out = try_apply_transfer_fee(
+        token_est_out_before_fee,
+        transfer_fee_out.unwrap_or_default(),
+    )?;
     let token_min_out =
         try_get_min_amount_with_slippage_tolerance(token_est_out, slippage_tolerance_bps)?;
 
@@ -178,14 +239,14 @@ pub struct SwapResult {
 /// # Arguments
 /// - `token_amount`: The input or output amount specified for the swap. Must be non-zero.
 /// - `sqrt_price_limit`: The price limit for the swap represented as a square root.
-///    If set to `0`, it defaults to the minimum or maximum sqrt price based on the direction of the swap.
+///   If set to `0`, it defaults to the minimum or maximum sqrt price based on the direction of the swap.
 /// - `whirlpool`: The current state of the Whirlpool AMM, including liquidity, price, and tick information.
 /// - `tick_sequence`: A sequence of ticks used to determine price levels during the swap process.
 /// - `a_to_b`: Indicates the direction of the swap:
-///    - `true`: Swap from token A to token B.
-///    - `false`: Swap from token B to token A.
+///   - `true`: Swap from token A to token B.
+///   - `false`: Swap from token B to token A.
 /// - `specified_input`: Determines if the input amount is specified:
-///    - `true`: `token_amount` represents the input amount.
+///   - `true`: `token_amount` represents the input amount.
 ///    - `false`: `token_amount` represents the output amount.
 /// - `timestamp`: A timestamp used to calculate the adaptive fee rate.
 /// - `adaptive_fee_info`: An optional `AdaptiveFeeInfo` struct containing information about the adaptive fee rate.
@@ -194,12 +255,78 @@ pub struct SwapResult {
 /// # Notes
 /// - This function doesn't take into account slippage tolerance.
 /// - This function doesn't take into account transfer fee extension.
+trait TickSequence {
+    fn next_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError>;
+    fn prev_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError>;
+}
+
+impl<const SIZE: usize> TickSequence for TickArraySequence<SIZE> {
+    fn next_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError> {
+        self.next_initialized_tick(tick_index)
+    }
+
+    fn prev_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError> {
+        self.prev_initialized_tick(tick_index)
+    }
+}
+
+#[cfg(not(feature = "wasm"))]
+impl<const SIZE: usize> TickSequence for BorrowedTickArraySequence<'_, SIZE> {
+    fn next_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError> {
+        self.next_initialized_tick(tick_index)
+    }
+
+    fn prev_initialized_tick(
+        &self,
+        tick_index: i32,
+    ) -> Result<(Option<&TickFacade>, i32), CoreError> {
+        self.prev_initialized_tick(tick_index)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn compute_swap<const SIZE: usize>(
     token_amount: u64,
     sqrt_price_limit: u128,
     whirlpool: WhirlpoolFacade,
     tick_sequence: TickArraySequence<SIZE>,
+    a_to_b: bool,
+    specified_input: bool,
+    timestamp: u64,
+    adaptive_fee_info: Option<AdaptiveFeeInfo>,
+) -> Result<SwapResult, CoreError> {
+    compute_swap_with_sequence(
+        token_amount,
+        sqrt_price_limit,
+        whirlpool,
+        tick_sequence,
+        a_to_b,
+        specified_input,
+        timestamp,
+        adaptive_fee_info,
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn compute_swap_with_sequence<S: TickSequence>(
+    token_amount: u64,
+    sqrt_price_limit: u128,
+    whirlpool: WhirlpoolFacade,
+    tick_sequence: S,
     a_to_b: bool,
     specified_input: bool,
     timestamp: u64,
@@ -619,6 +746,66 @@ mod tests {
             .unwrap()
             .as_secs()
     }
+    #[test]
+    fn borrowed_input_quote_matches_owned_results_and_errors() {
+        for specified_token_a in [false, true] {
+            for sufficient_liq in [false, true] {
+                for token_in in [1, 1000, 1_000_000, u32::MAX as u64] {
+                    let arrays = test_tick_arrays();
+                    let whirlpool = test_whirlpool(1 << 64, sufficient_liq);
+                    let owned = swap_quote_by_input_token(
+                        token_in,
+                        specified_token_a,
+                        137,
+                        whirlpool,
+                        None,
+                        arrays.clone(),
+                        1_700_000_000,
+                        None,
+                        None,
+                    );
+                    let borrowed = swap_quote_by_input_token_ref(
+                        token_in,
+                        specified_token_a,
+                        137,
+                        whirlpool,
+                        None,
+                        &arrays,
+                        1_700_000_000,
+                        None,
+                        None,
+                    );
+                    assert_eq!(borrowed, owned);
+                }
+            }
+        }
+
+        let invalid_arrays = TickArrays::Two(test_tick_array(0), test_tick_array(200));
+        let whirlpool = test_whirlpool(1 << 64, true);
+        let owned = swap_quote_by_input_token(
+            1000,
+            true,
+            0,
+            whirlpool,
+            None,
+            invalid_arrays.clone(),
+            1_700_000_000,
+            None,
+            None,
+        );
+        let borrowed = swap_quote_by_input_token_ref(
+            1000,
+            true,
+            0,
+            whirlpool,
+            None,
+            &invalid_arrays,
+            1_700_000_000,
+            None,
+            None,
+        );
+        assert_eq!(borrowed, owned);
+    }
 
     #[test]
     fn test_exact_in_a_to_b_simple() {
@@ -806,7 +993,7 @@ mod tests {
             None,
         );
         assert_eq!(result_3428.token_in, 3428);
-        assert!(matches!(result_3429, Err(INVALID_TICK_ARRAY_SEQUENCE)));
+        assert_eq!(result_3429, Err(crate::INVALID_TICK_ARRAY_SEQUENCE));
     }
 
     mod adaptive_fee {
