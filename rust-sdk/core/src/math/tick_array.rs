@@ -9,6 +9,12 @@ use super::{
     get_prev_initializable_tick_index,
 };
 
+/// Sqrt prices of one tick array's grid ticks: entry `i` is
+/// `tick_index_to_sqrt_price(start_tick_index + i * tick_spacing)`. Callers
+/// that quote one pool many times precompute this once so the swap loop
+/// does not repeat the exponentiation for every step.
+pub type TickArraySqrtPrices = [u128; TICK_ARRAY_SIZE];
+
 trait TickArrayStorage {
     fn len(&self) -> usize;
     fn array(&self, index: usize) -> Option<&TickArrayFacade>;
@@ -84,6 +90,29 @@ fn sequence_tick(
     let array = arrays.array(array_index).ok_or(TICK_INDEX_OUT_OF_BOUNDS)?;
     let offset = (tick_index - array.start_tick_index) / spacing as i32;
     Ok(&array.ticks[offset as usize])
+}
+
+/// The precomputed sqrt price of `tick_index`, if its array carries a table.
+/// Mirrors `sequence_tick`'s index arithmetic; any tick outside the sequence
+/// or off the grid yields `None` so the caller computes it instead.
+fn sequence_sqrt_price(
+    arrays: &impl TickArrayStorage,
+    prices: &[Option<&TickArraySqrtPrices>],
+    spacing: u16,
+    tick_index: i32,
+) -> Option<u128> {
+    if tick_index < sequence_start_index(arrays)
+        || tick_index > sequence_end_index(arrays, spacing)
+        || tick_index % spacing as i32 != 0
+    {
+        return None;
+    }
+    let first = array_start(arrays.array(0));
+    let array_index = ((tick_index - first) / (TICK_ARRAY_SIZE as i32 * spacing as i32)) as usize;
+    let array = arrays.array(array_index)?;
+    let table = prices.get(array_index).copied().flatten()?;
+    let offset = (tick_index - array.start_tick_index) / spacing as i32;
+    table.get(offset as usize).copied()
 }
 
 fn sequence_next_initialized_tick(
@@ -175,19 +204,46 @@ impl<const SIZE: usize> TickArraySequence<SIZE> {
 pub struct BorrowedTickArraySequence<'a, const SIZE: usize> {
     pub tick_arrays: [Option<&'a TickArrayFacade>; SIZE],
     pub tick_spacing: u16,
+    /// Optional per-array sqrt-price tables, aligned with `tick_arrays`.
+    pub sqrt_prices: [Option<&'a TickArraySqrtPrices>; SIZE],
 }
 #[cfg(not(feature = "wasm"))]
 impl<'a, const SIZE: usize> BorrowedTickArraySequence<'a, SIZE> {
     pub fn new(
-        mut tick_arrays: [Option<&'a TickArrayFacade>; SIZE],
+        tick_arrays: [Option<&'a TickArrayFacade>; SIZE],
         tick_spacing: u16,
     ) -> Result<Self, CoreError> {
-        tick_arrays.sort_by_key(|array| array_start(*array));
+        Self::new_with_sqrt_prices(tick_arrays, [None; SIZE], tick_spacing)
+    }
+
+    /// Like `new`, with a sqrt-price table per array (same positions as
+    /// `tick_arrays`; both are sorted together by array start).
+    pub fn new_with_sqrt_prices(
+        tick_arrays: [Option<&'a TickArrayFacade>; SIZE],
+        sqrt_prices: [Option<&'a TickArraySqrtPrices>; SIZE],
+        tick_spacing: u16,
+    ) -> Result<Self, CoreError> {
+        let mut pairs: [(Option<&'a TickArrayFacade>, Option<&'a TickArraySqrtPrices>); SIZE] =
+            core::array::from_fn(|index| (tick_arrays[index], sqrt_prices[index]));
+        pairs.sort_by_key(|(array, _)| array_start(*array));
+        let tick_arrays = pairs.map(|(array, _)| array);
+        let sqrt_prices = pairs.map(|(_, prices)| prices);
         validate_sequence(&tick_arrays, tick_spacing)?;
         Ok(Self {
             tick_arrays,
             tick_spacing,
+            sqrt_prices,
         })
+    }
+
+    /// Precomputed sqrt price of a grid tick, when its array has a table.
+    pub fn sqrt_price(&self, tick_index: i32) -> Option<u128> {
+        sequence_sqrt_price(
+            &self.tick_arrays,
+            &self.sqrt_prices,
+            self.tick_spacing,
+            tick_index,
+        )
     }
     pub fn start_index(&self) -> i32 {
         sequence_start_index(&self.tick_arrays)

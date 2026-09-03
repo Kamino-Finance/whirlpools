@@ -12,6 +12,8 @@ use crate::{
 
 #[cfg(not(feature = "wasm"))]
 use crate::BorrowedTickArraySequence;
+#[cfg(not(feature = "wasm"))]
+use crate::TickArraySqrtPrices;
 
 #[cfg(feature = "wasm")]
 use orca_whirlpools_macros::wasm_expose;
@@ -104,6 +106,38 @@ pub fn swap_quote_by_input_token_ref(
     transfer_fee_a: Option<TransferFee>,
     transfer_fee_b: Option<TransferFee>,
 ) -> Result<ExactInSwapQuote, CoreError> {
+    swap_quote_by_input_token_ref_with_sqrt_prices(
+        token_in,
+        specified_token_a,
+        slippage_tolerance_bps,
+        whirlpool,
+        oracle,
+        tick_arrays,
+        &[None; 6],
+        timestamp,
+        transfer_fee_a,
+        transfer_fee_b,
+    )
+}
+
+/// `swap_quote_by_input_token_ref` with a precomputed sqrt-price table per
+/// tick array (same positions as `tick_arrays.as_refs()`). Entry `i` of a
+/// table must equal `tick_index_to_sqrt_price(start_tick_index + i *
+/// tick_spacing)`; the quote is then identical to the untabled one.
+#[cfg(not(feature = "wasm"))]
+#[allow(clippy::too_many_arguments)]
+pub fn swap_quote_by_input_token_ref_with_sqrt_prices(
+    token_in: u64,
+    specified_token_a: bool,
+    slippage_tolerance_bps: u16,
+    whirlpool: WhirlpoolFacade,
+    oracle: Option<OracleFacade>,
+    tick_arrays: &TickArrays,
+    sqrt_prices: &[Option<&TickArraySqrtPrices>; 6],
+    timestamp: u64,
+    transfer_fee_a: Option<TransferFee>,
+    transfer_fee_b: Option<TransferFee>,
+) -> Result<ExactInSwapQuote, CoreError> {
     let (transfer_fee_in, transfer_fee_out) = if specified_token_a {
         (transfer_fee_a, transfer_fee_b)
     } else {
@@ -112,8 +146,11 @@ pub fn swap_quote_by_input_token_ref(
     let token_in_after_fee =
         try_apply_transfer_fee(token_in.into(), transfer_fee_in.unwrap_or_default())?;
 
-    let tick_sequence =
-        BorrowedTickArraySequence::new(tick_arrays.as_refs(), whirlpool.tick_spacing)?;
+    let tick_sequence = BorrowedTickArraySequence::new_with_sqrt_prices(
+        tick_arrays.as_refs(),
+        *sqrt_prices,
+        whirlpool.tick_spacing,
+    )?;
 
     let swap_result = compute_swap_with_sequence(
         token_in_after_fee.into(),
@@ -264,6 +301,10 @@ trait TickSequence {
         &self,
         tick_index: i32,
     ) -> Result<(Option<&TickFacade>, i32), CoreError>;
+    /// Precomputed sqrt price of a grid tick; `None` means compute it.
+    fn tick_sqrt_price(&self, _tick_index: i32) -> Option<u128> {
+        None
+    }
 }
 
 impl<const SIZE: usize> TickSequence for TickArraySequence<SIZE> {
@@ -296,6 +337,10 @@ impl<const SIZE: usize> TickSequence for BorrowedTickArraySequence<'_, SIZE> {
         tick_index: i32,
     ) -> Result<(Option<&TickFacade>, i32), CoreError> {
         self.prev_initialized_tick(tick_index)
+    }
+
+    fn tick_sqrt_price(&self, tick_index: i32) -> Option<u128> {
+        self.sqrt_price(tick_index)
     }
 }
 
@@ -385,7 +430,9 @@ fn compute_swap_with_sequence<S: TickSequence>(
         } else {
             tick_sequence.next_initialized_tick(current_tick_index)?
         };
-        let next_tick_sqrt_price: u128 = tick_index_to_sqrt_price(next_tick_index.into()).into();
+        let next_tick_sqrt_price: u128 = tick_sequence
+            .tick_sqrt_price(next_tick_index)
+            .unwrap_or_else(|| tick_index_to_sqrt_price(next_tick_index.into()).into());
         let target_sqrt_price = if a_to_b {
             next_tick_sqrt_price.max(sqrt_price_limit)
         } else {
@@ -746,6 +793,54 @@ mod tests {
             .unwrap()
             .as_secs()
     }
+    /// A sqrt-price table built from `tick_index_to_sqrt_price` must leave
+    /// the borrowed quote identical to the owned one.
+    #[test]
+    fn tabled_input_quote_matches_owned_results() {
+        let arrays = test_tick_arrays();
+        let refs = arrays.as_refs();
+        let tables: [Option<TickArraySqrtPrices>; 6] = core::array::from_fn(|index| {
+            refs[index].map(|array| {
+                core::array::from_fn(|offset| {
+                    tick_index_to_sqrt_price(array.start_tick_index + offset as i32 * 2).into()
+                })
+            })
+        });
+        let table_refs: [Option<&TickArraySqrtPrices>; 6] =
+            core::array::from_fn(|index| tables[index].as_ref());
+        for specified_token_a in [false, true] {
+            for sufficient_liq in [false, true] {
+                for token_in in [1, 1000, 1_000_000, u32::MAX as u64] {
+                    let whirlpool = test_whirlpool(1 << 64, sufficient_liq);
+                    let owned = swap_quote_by_input_token(
+                        token_in,
+                        specified_token_a,
+                        137,
+                        whirlpool,
+                        None,
+                        arrays.clone(),
+                        1_700_000_000,
+                        None,
+                        None,
+                    );
+                    let tabled = swap_quote_by_input_token_ref_with_sqrt_prices(
+                        token_in,
+                        specified_token_a,
+                        137,
+                        whirlpool,
+                        None,
+                        &arrays,
+                        &table_refs,
+                        1_700_000_000,
+                        None,
+                        None,
+                    );
+                    assert_eq!(tabled, owned);
+                }
+            }
+        }
+    }
+
     #[test]
     fn borrowed_input_quote_matches_owned_results_and_errors() {
         for specified_token_a in [false, true] {
