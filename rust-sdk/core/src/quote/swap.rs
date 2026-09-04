@@ -379,7 +379,19 @@ fn compute_swap_with_sequence<S: TickSequence>(
         &adaptive_fee_info,
     )?;
 
+    // Debug-only witness for the argument that lets the partial-step branch
+    // below drop its tick-index conversion: if a partial step's index could
+    // ever reach the lookup, this flag would still be set here.
+    #[cfg(debug_assertions)]
+    let mut index_after_partial_step = false;
+
     while amount_remaining > 0 && sqrt_price_limit != current_sqrt_price {
+        #[cfg(debug_assertions)]
+        debug_assert!(
+            !index_after_partial_step,
+            "a partial step's tick index reached the lookup: the removed \
+             conversion is reachable again and must be restored"
+        );
         let (next_tick, next_tick_index) = if a_to_b {
             tick_sequence.prev_initialized_tick(current_tick_index)?
         } else {
@@ -448,10 +460,27 @@ fn compute_swap_with_sequence<S: TickSequence>(
                     next_tick_index - 1
                 } else {
                     next_tick_index
+                };
+                #[cfg(debug_assertions)]
+                {
+                    index_after_partial_step = false;
                 }
             } else if step_quote.next_sqrt_price != current_sqrt_price {
-                current_tick_index =
-                    sqrt_price_to_tick_index(step_quote.next_sqrt_price.into()).into();
+                // A partial step used to recompute `current_tick_index` with
+                // `sqrt_price_to_tick_index` here. That value can never be
+                // read: `current_tick_index` is read only by the tick lookup
+                // at the top of the outer loop, and reaching that lookup
+                // requires this inner loop to have exited with
+                // `current_sqrt_price == target_sqrt_price` while
+                // `current_sqrt_price != sqrt_price_limit` — so the target was
+                // the next tick price, which is the crossing branch above,
+                // which sets the index directly. Quotes that end by consuming
+                // their input therefore no longer pay the conversion, and
+                // quotes that continue take the crossing branch instead.
+                #[cfg(debug_assertions)]
+                {
+                    index_after_partial_step = true;
+                }
             }
 
             current_sqrt_price = step_quote.next_sqrt_price;
@@ -746,6 +775,65 @@ mod tests {
             .unwrap()
             .as_secs()
     }
+    /// Sweep used as the cross-version differential fixture: the same sweep
+    /// runs on the parent commit (which recomputed the tick index on a
+    /// partial step) and on this one, and every printed quote must match.
+    /// `cargo test --lib quote_sweep_fingerprint -- --nocapture` prints it.
+    #[test]
+    fn quote_sweep_fingerprint() {
+        let mut lines = Vec::new();
+        for specified_token_a in [false, true] {
+            for sufficient_liq in [false, true] {
+                for sqrt_price in [
+                    1u128 << 64,
+                    (1u128 << 64) + 1,
+                    (1u128 << 64) - 1,
+                    3 << 63,
+                    5 << 62,
+                ] {
+                    for token_in in [
+                        1u64,
+                        3,
+                        7,
+                        99,
+                        999,
+                        1000,
+                        4095,
+                        65_537,
+                        1_000_000,
+                        123_456_789,
+                        u32::MAX as u64,
+                    ] {
+                        let whirlpool = test_whirlpool(sqrt_price, sufficient_liq);
+                        let quote = swap_quote_by_input_token(
+                            token_in,
+                            specified_token_a,
+                            137,
+                            whirlpool,
+                            None,
+                            test_tick_arrays(),
+                            1_700_000_000,
+                            None,
+                            None,
+                        );
+                        lines.push(format!(
+                            "a={specified_token_a} liq={sufficient_liq} sp={sqrt_price} in={token_in} -> {quote:?}"
+                        ));
+                    }
+                }
+            }
+        }
+        // Printed so the same sweep can be captured on another commit and
+        // diffed; the count is asserted so a fixture edit cannot silently
+        // shrink the comparison.
+        assert_eq!(lines.len(), 2 * 2 * 5 * 11);
+        println!("SWEEP-START");
+        for line in &lines {
+            println!("{line}");
+        }
+        println!("SWEEP-END");
+    }
+
     #[test]
     fn borrowed_input_quote_matches_owned_results_and_errors() {
         for specified_token_a in [false, true] {
