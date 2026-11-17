@@ -1,10 +1,11 @@
 use anchor_lang::prelude::*;
 
+#[allow(deprecated)]
 fn assert_expected_rent_config() -> Result<()> {
     let rent = Rent::get()?;
     match (
-        rent.exemption_threshold.to_bits(),
-        rent.lamports_per_byte_year,
+        u64::from_le_bytes(rent.exemption_threshold),
+        rent.lamports_per_byte,
     ) {
         // floating point number operation is high cost, so we hardcode a precalculated value here
         // see also: https://github.com/anza-xyz/solana-sdk/blob/5390fa973897e969c5adea858079c7de1fa67d07/rent/src/lib.rs#L55-L59
@@ -29,9 +30,9 @@ fn assert_expected_rent_config() -> Result<()> {
         (0x40_00_00_00_00_00_00_00u64, 3480u64) => { Ok(()) },
         _ => {
             unreachable!(
-                "unexpected Rent configuration on the Solana network: lamports_per_byte_year={}, exemption_threshold_bits={:#018x}",
-                rent.lamports_per_byte_year,
-                rent.exemption_threshold.to_bits(),
+                "unexpected Rent configuration on the Solana network: lamports_per_byte={}, exemption_threshold_bits={:#018x}",
+                rent.lamports_per_byte,
+                u64::from_le_bytes(rent.exemption_threshold),
             );
         }
     }

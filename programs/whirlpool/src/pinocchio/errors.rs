@@ -1,5 +1,5 @@
 use anchor_lang::error::Error as AnchorError;
-use anchor_lang::prelude::borsh::maybestd::io::Error as BorshIoError;
+use anchor_lang::prelude::borsh::io::Error as BorshIoError;
 use pinocchio::program_error::ProgramError as PinocchioProgramError;
 
 pub use crate::errors::ErrorCode as WhirlpoolErrorCode;
